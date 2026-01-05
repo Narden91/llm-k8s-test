@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-test # avoid "_" symbols
+  namespace: default
+spec:
+  restartPolicy: OnFailure
+  runtimeClassName: seeweb-nvidia-1xa6000 # 2xa6000
+  imagePullSecrets:
+    - name: ghcr-secret
+  containers:
+  - name: nvidia
+    image: "ghcr.io/narden91/k8s_test:sha-790e655"    
+    imagePullPolicy: Always
+    resources:
+      limits:
+        nvidia.com/gpu: "1"
+    envFrom:
+      - secretRef:
+          name: s3-secrets
+      - configMapRef:
+          name: prj-configmap
