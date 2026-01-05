@@ -1,9 +1,12 @@
 # LLM Chat Application Dependencies
 # Optimized for vLLM on NVIDIA A6000
 
-# Core ML/DL
-torch>=2.1.0
-vllm>=0.4.0
+# Core ML/DL - use pip index for CUDA wheels
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.2
+
+# vLLM (includes its own torch dependency management)
+vllm==0.4.2
 
 # LLM utilities
 transformers>=4.40.0
@@ -20,3 +23,4 @@ streamlit>=1.32.0
 # Utilities
 rich>=10.0.0
 python-dotenv>=1.0.0
+
