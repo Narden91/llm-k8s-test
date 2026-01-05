@@ -1,0 +1,35 @@
+# LLM Configuration
+# Configuration file for the LLM chat application
+
+model:
+  # Hugging Face model identifier
+  model_id: "mistralai/Mistral-7B-Instruct-v0.3"
+  # Model revision/branch to use
+  revision: "main"
+  # Data type for model weights (float16, bfloat16, auto)
+  dtype: "auto"
+  # Fraction of GPU memory to use (0.1 - 0.99)
+  gpu_memory_utilization: 0.9
+  # Maximum context length (null uses model default)
+  max_model_len: null
+  # Whether to trust remote code from HF hub
+  trust_remote_code: false
+
+generation:
+  # Maximum number of tokens to generate
+  max_tokens: 2048
+  # Sampling temperature (0.0 - 2.0)
+  temperature: 0.7
+  # Nucleus sampling probability threshold
+  top_p: 0.95
+  # Top-k sampling parameter
+  top_k: 50
+  # Penalty for repeating tokens
+  repetition_penalty: 1.1
+  # Sequences that signal end of generation
+  stop_sequences:
+    - "</s>"
+    - "[/INST]"
+
+# Number of GPUs for tensor parallelism (1 for single A6000)
+tensor_parallel_size: 1

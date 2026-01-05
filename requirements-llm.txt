@@ -1,0 +1,22 @@
+# LLM Chat Application Dependencies
+# Optimized for vLLM on NVIDIA A6000
+
+# Core ML/DL
+torch>=2.1.0
+vllm>=0.4.0
+
+# LLM utilities
+transformers>=4.40.0
+accelerate>=0.27.0
+huggingface-hub>=0.22.0
+
+# Configuration
+pydantic>=2.0.0
+pyyaml>=6.0.0
+
+# Web interface
+streamlit>=1.32.0
+
+# Utilities
+rich>=10.0.0
+python-dotenv>=1.0.0
