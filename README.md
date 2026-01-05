@@ -1,207 +1,148 @@
-# 🚀 GPU-Accelerated Processing Framework
+# 🤖 LLM Chat Platform on Kubernetes
 
 ## 👤 Author
 **Emanuele Nardone**
 
 ## 📌 Overview
-A **containerized application** that performs **GPU-accelerated processing tasks** using PyTorch, designed to run in a **Seeweb Serverless GPU Cluster** with **NVIDIA A6000 GPUs**. The framework supports two primary processing modes:
-
-1. 🔢 **Matrix Multiplication Benchmark**: Compares CPU and GPU performance for various matrix sizes.
-2. 🖼 **Image Processing Pipeline**: Applies transformations using both CPU and GPU, including **Gaussian blur** and **color adjustments**.
-
-📂 Results are stored in **S3-compatible storage**, and container images are managed through **GitHub Container Registry (GHCR)**.
+A **production-ready LLM inference platform** powered by **vLLM** and **Mistral 7B**, designed for deployment on **GPU-enabled Kubernetes clusters** (NVIDIA A6000). Features a modern **Streamlit chat interface** with streaming responses.
 
 ---
 
 ## ✨ Features
 
-### 🔥 Core Features
-✅ Dual processing modes: **Matrix multiplication** and **Image processing**  
-✅ **Automatic GPU detection** with CPU fallback  
-✅ **Detailed performance metrics** and speedup calculations  
-✅ **Rich CLI output** with colored performance indicators  
-✅ **S3-compatible storage integration**  
-✅ **Comprehensive logging system**  
-✅ Configurable via **CLI arguments** or **environment variables**  
+### 🧠 LLM Inference Engine
+- **vLLM** for high-throughput, low-latency inference
+- **Mistral 7B Instruct** with proper prompt formatting
+- Configurable generation parameters (temperature, top-p, max tokens)
+- Multi-turn conversation history management
+- Streaming token generation for real-time responses
 
-### 🔢 Matrix Processing Features
-🔹 Configurable matrix sizes for benchmarking  
-🔹 PyTorch-based **CPU vs GPU computations**  
-🔹 **Memory-efficient** large matrix handling  
+### 💬 Chat Interface
+- Modern **Streamlit** web UI
+- Real-time streaming responses with typing indicator
+- Configurable model settings via sidebar
+- Session-based conversation management
+- Mobile-responsive design
 
-### 🖼 Image Processing Features
-🎨 Batch image processing capabilities  
-🎨 **Gaussian blur** and **color adjustment** transformations  
-🎨 Support for **PNG, JPG, JPEG** formats  
-🎨 **Parallel processing** optimization  
-
-### 🏗 Infrastructure Features
-🛠 **NVIDIA CUDA 11.8.0 runtime** support  
-🛠 **Kubernetes integration** with GPU resource management  
-🛠 **GitHub Actions CI/CD pipeline**  
-🛠 **Exponential backoff retry mechanism** for S3 operations  
+### 🏗️ Infrastructure
+- **NVIDIA CUDA** runtime optimized containers
+- **Kubernetes** deployment with GPU scheduling
+- Health checks and readiness probes
+- GitHub Actions CI/CD pipeline
+- Hugging Face model caching
 
 ---
 
 ## 📁 Project Structure
 ```bash
-k8s_test/
-├── benchmark_operations/      # 🔢 Matrix multiplication operations
-│   └── benchmark_operations.py
-├── image_processing/         # 🖼 Image processing operations
-│   └── image_processing_operations.py
-├── cli_operations/          # 🎛 Command-line interface handling
-│   └── cli_operations.py
-├── config/                  # ⚙️ Configuration management
-│   └── s3_config_handler.py
-├── s3_operations/          # ☁️ S3 storage operations
-│   ├── s3_client.py       # 🔗 Low-level S3 client with retry logic
-│   └── s3_operations.py   # 📦 High-level S3 operations
-├── .env.test              # 🌎 Environment variables template
-├── .gitignore             # 🚫 Git ignore rules
-├── Dockerfile             # 🐳 NVIDIA CUDA-based container configuration
-├── main.py               # 🎯 Application entry point
-├── python_image.yml      # 📜 Kubernetes pod configuration
-└── requirements.txt      # 📌 Python dependencies
+llm-k8s-test/
+├── llm_operations/           # 🧠 LLM inference engine
+│   ├── llm_config.py         # Pydantic configuration models
+│   └── llm_inference.py      # vLLM engine wrapper
+├── streamlit_app/            # 💬 Chat interface
+│   └── app.py                # Streamlit application
+├── s3_operations/            # ☁️ S3 storage utilities
+├── configs/                  # ⚙️ YAML configuration files
+├── doc/                      # 📚 Documentation
+├── .github/workflows/        # 🔄 CI/CD pipelines
+├── Dockerfile.llm            # 🐳 LLM container image
+├── llm-manifest.yml          # ☸️ Kubernetes deployment
+├── requirements-llm.txt      # 📦 Python dependencies
+└── pyproject.toml            # 🔧 Project configuration
 ```
 
 ---
 
 ## ⚠️ Prerequisites
-🔹 **Kubernetes cluster** with NVIDIA GPU support  
-🔹 **NVIDIA Container Toolkit**  
-🔹 **Access to GitHub Container Registry**  
-🔹 **S3-compatible storage**  
-🔹 **kubectl CLI tool**  
-🔹 **Python 3.8+** (for local development)  
+- **Kubernetes cluster** with NVIDIA GPU support
+- **NVIDIA Container Toolkit** installed
+- **NVIDIA A6000** (or compatible GPU with ≥16GB VRAM)
+- **Hugging Face token** (optional, for gated models)
+- **kubectl** CLI tool
 
 ---
 
-## 📦 Local Development with uv
+## 🚀 Quick Start
 
-This project uses [uv](https://github.com/astral-sh/uv) for extremely fast Python package management.
+### Local Development
 
-### 📥 Installation
-Using the standalone installer (recommended):
+This project uses [uv](https://github.com/astral-sh/uv) for fast Python package management.
 
 ```bash
-# On Windows (PowerShell)
+# Install uv (Windows PowerShell)
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# On macOS/Linux
+# Install uv (macOS/Linux)
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Run Streamlit app (requires GPU)
+uv run streamlit run streamlit_app/app.py
 ```
 
-### 🚀 Getting Started
+### Kubernetes Deployment
 
-1. **Initialize the Environment**:
-   This will create the virtual environment and install all dependencies defined in `pyproject.toml`.
-   ```bash
-   uv sync
-   ```
-
-2. **Run the Application**:
-   Execute the script within the managed environment:
-   ```bash
-   uv run python main.py
-   ```
-
-3. **Managing Dependencies**:
-   - **Add a new package**:
-     ```bash
-     uv add <package_name>
-     ```
-   - **Remove a package**:
-     ```bash
-     uv remove <package_name>
-     ```
-   - **Update dependencies**:
-     ```bash
-     uv lock --upgrade
-     ```
-
----
-
-## 🔧 Environment Variables
-Create a `.env` file based on `.env.test`:
 ```bash
-# ☁️ S3 Configuration
-S3_ENDPOINT_URL=your-s3-endpoint
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-S3_BUCKET=your-bucket-name
-
-# 🔧 Processing Configuration
-PROCESSING_MODE=matrix|image  # Optional, defaults to matrix
-MATRIX_SIZES=1000,2000,3000  # Optional for matrix mode
-RAW_IMAGES_FOLDER=RawImages  # Optional for image mode
-PROCESSED_IMAGES_FOLDER=ProcessedImages  # Optional for image mode
-RESULTS_FOLDER=benchmark_results  # Optional
-```
-
----
-
-## 🚀 Kubernetes Deployment
-
-### 🖥 1. GPU Runtime Configuration
-```yaml
-spec:
-  runtimeClassName: seeweb-nvidia-1xa6000
-  containers:
-    - resources:
-        limits:
-          nvidia.com/gpu: "1"
-```
-
-### 🔑 2. Create Required Secrets
-```bash
-# GitHub Container Registry credentials
+# Create GitHub Container Registry secret
 kubectl create secret docker-registry ghcr-secret \
   --docker-server=ghcr.io \
   --docker-username=YOUR_GITHUB_USERNAME \
   --docker-password=YOUR_GITHUB_PAT \
   --docker-email=YOUR_GITHUB_EMAIL
 
-# S3 credentials
-kubectl create secret generic s3-secrets \
-  --from-literal=S3_ENDPOINT_URL=your-s3-endpoint \
-  --from-literal=AWS_ACCESS_KEY_ID=your-access-key \
-  --from-literal=AWS_SECRET_ACCESS_KEY=your-secret-key \
-  --from-literal=S3_BUCKET=your-bucket-name
+# Create Hugging Face secret (optional, for gated models)
+kubectl create secret generic llm-secrets \
+  --from-literal=HF_TOKEN=your-hf-token
+
+# Deploy the application
+kubectl apply -f llm-manifest.yml
+
+# Check pod status
+kubectl get pods -l app=llm-chat
+
+# View logs
+kubectl logs -f -l app=llm-chat
+
+# Port forward to access UI
+kubectl port-forward svc/llm-chat-service 8501:8501
 ```
 
-### 🛠 3. Create ConfigMap
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prj-configmap
-data:
-  MATRIX_SIZES: "4000,5000,10000"
-  PROCESSING_MODE: "matrix"  # or "image"
-  RAW_IMAGES_FOLDER: "RawImages"
-  PROCESSED_IMAGES_FOLDER: "ProcessedImages"
-  RESULTS_FOLDER: "benchmark_results"
-```
-Apply with:
-```bash
-kubectl apply -f prj-configmap.yml
-```
+Then open http://localhost:8501 in your browser.
 
-### 🚀 4. Launch the Application
-```bash
-kubectl apply -f manifest.yml
-```
+---
+
+## 🔧 Configuration
+
+### Generation Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `temperature` | 0.7 | Sampling temperature (0-2). Higher = more creative |
+| `max_tokens` | 2048 | Maximum response length |
+| `top_p` | 0.95 | Nucleus sampling threshold |
+| `top_k` | 50 | Top-k sampling |
+| `repetition_penalty` | 1.1 | Token repetition penalty |
+
+### Model Settings
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `model_id` | `mistralai/Mistral-7B-Instruct-v0.3` | Hugging Face model |
+| `gpu_memory_utilization` | 0.9 | GPU memory fraction (0.1-0.99) |
+| `tensor_parallel_size` | 1 | Number of GPUs for tensor parallelism |
 
 ---
 
 ## 🔄 CI/CD Pipeline
-✅ **Triggers on version tags (v*.*.*)**  
-✅ **Uses NVIDIA CUDA 11.8.0 base image**  
-✅ **Pushes to GitHub Container Registry**  
-✅ **Tags images with semantic version and Git SHA**  
 
-### 🚀 Triggering a Build
+The project includes GitHub Actions workflows for automated container builds:
+
+- **Triggers** on version tags (`v*.*.*`)
+- **Builds** optimized vLLM-based container image
+- **Pushes** to GitHub Container Registry (GHCR)
+- **Tags** with semantic version and Git SHA
+
+### Triggering a Build
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
@@ -209,39 +150,47 @@ git push origin v1.0.0
 
 ---
 
-## 🔍 Monitoring and Troubleshooting
+## 🔍 Monitoring & Troubleshooting
 
-### 📌 Pod Status and Logs
+### Check Pod Status
 ```bash
-# Check pod status
-kubectl get pods
-kubectl describe pod k8s-test
-
-# View logs
-kubectl logs -f k8s-test
-
-# Check GPU status
-kubectl exec -it k8s-test -- nvidia-smi
+kubectl get pods -l app=llm-chat
+kubectl describe pod -l app=llm-chat
 ```
 
-### ⚠️ Common Issues and Solutions
-1. **GPU Not Detected**  
-   🔹 Verify runtime class configuration  
-   🔹 Check NVIDIA device plugin status  
-   ```bash
-   kubectl get pods -n kube-system | grep nvidia-device-plugin
-   ```
-2. **S3 Connection Issues**  
-   🔹 Verify endpoint and credentials  
-   🔹 Check network connectivity  
-   🔹 Review exponential backoff settings  
-3. **Performance Optimization**  
-   🔹 Monitor GPU memory usage  
-   🔹 Adjust batch sizes for image processing  
-   🔹 Consider matrix size limitations  
+### View Logs
+```bash
+kubectl logs -f -l app=llm-chat
+```
+
+### Check GPU Status
+```bash
+kubectl exec -it $(kubectl get pods -l app=llm-chat -o jsonpath='{.items[0].metadata.name}') -- nvidia-smi
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Model loading timeout | Increase `initialDelaySeconds` in readiness probe |
+| OOM errors | Reduce `gpu_memory_utilization` or use smaller model |
+| Slow first response | Normal - KV cache warmup on first request |
 
 ---
 
-## 🏁 License
-📜 **Unicas & Seeweb**
+## 📚 Documentation
 
+Additional documentation available in the `doc/` folder:
+- [CLI Reference](doc/CLI_REFERENCE.md)
+- [Kubernetes Commands](doc/K8s_commands.md)
+- [Seeweb Setup Guide](doc/Seeweb_setup_guide.md)
+
+### Future Project Ideas
+- [Multi-Model GPU Orchestration](doc/IDEA_MULTI_MODEL_ORCHESTRATION.md)
+- [Federated LLM with Privacy](doc/IDEA_FEDERATED_LLM_PRIVACY.md)
+- [Self-Optimizing LLM Inference](doc/IDEA_SELF_OPTIMIZING_LLM.md)
+
+---
+
+## 📜 License
+**Unicas & Seeweb**
