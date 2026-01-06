@@ -106,7 +106,7 @@ def render_sidebar() -> dict:
         model_names = list(MODEL_PRESETS.keys())
         
         # Default to Mistral 7B (known working)
-        default_idx = model_names.index("✅ Mistral 7B v0.2") if "✅ Mistral 7B v0.2" in model_names else 0
+        default_idx = model_names.index("Mistral 7B v0.2") if "Mistral 7B v0.2" in model_names else 0
         
         model_name = st.selectbox(
             "Select Model",
