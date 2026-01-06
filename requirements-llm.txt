@@ -11,3 +11,7 @@ pyyaml>=6.0.0
 # Utilities
 rich>=10.0.0
 python-dotenv>=1.0.0
+
+# Monitoring
+wandb>=0.16.0
+

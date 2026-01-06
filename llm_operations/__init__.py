@@ -3,5 +3,6 @@
 
 from llm_operations.llm_config import LLMConfig
 from llm_operations.llm_inference import LLMEngine
+from llm_operations.metrics import MetricsLogger, InferenceMetrics, get_metrics_logger
 
-__all__ = ["LLMConfig", "LLMEngine"]
+__all__ = ["LLMConfig", "LLMEngine", "MetricsLogger", "InferenceMetrics", "get_metrics_logger"]

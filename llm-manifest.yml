@@ -30,6 +30,12 @@ spec:
           name: llm-secrets
           key: HF_TOKEN
           optional: true
+    - name: WANDB_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: wandb-secret
+          key: WANDB_API_KEY
+          optional: true
     - name: CUDA_VISIBLE_DEVICES
       value: "0"
     envFrom:
