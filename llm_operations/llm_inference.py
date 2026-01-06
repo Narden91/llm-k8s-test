@@ -99,12 +99,15 @@ class LLMEngine:
         """
         logger.info(f"Loading model: {self.config.model.model_id}")
 
+        # Use max_model_len to limit context and reduce memory usage
+        max_len = self.config.model.max_model_len or 4096  # Default to 4k context
+        
         self._llm = LLM(
             model=self.config.model.model_id,
             revision=self.config.model.revision,
             dtype=self.config.model.dtype,
             gpu_memory_utilization=self.config.model.gpu_memory_utilization,
-            max_model_len=self.config.model.max_model_len,
+            max_model_len=max_len,
             trust_remote_code=self.config.model.trust_remote_code,
             tensor_parallel_size=self.config.tensor_parallel_size,
         )

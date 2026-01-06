@@ -3,7 +3,7 @@
 
 model:
   # Hugging Face model identifier
-  model_id: "mistralai/Mistral-7B-Instruct-v0.3"
+  model_id: "mistralai/Mistral-7B-Instruct-v0.2"
   # Model revision/branch to use
   revision: "main"
   # Data type for model weights (float16, bfloat16, auto)

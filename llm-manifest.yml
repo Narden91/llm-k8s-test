@@ -69,8 +69,9 @@ spec:
   ports:
   - port: 8501
     targetPort: 8501
+    nodePort: 30851
     name: streamlit
-  type: ClusterIP
+  type: NodePort
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -78,7 +79,7 @@ metadata:
   name: llm-configmap
   namespace: default
 data:
-  MODEL_ID: "mistralai/Mistral-7B-Instruct-v0.3"
-  GPU_MEMORY_UTILIZATION: "0.9"
-  MAX_TOKENS: "2048"
+  MODEL_ID: "mistralai/Mistral-7B-Instruct-v0.2"
+  GPU_MEMORY_UTILIZATION: "0.75"
+  MAX_TOKENS: "1024"
   TEMPERATURE: "0.7"

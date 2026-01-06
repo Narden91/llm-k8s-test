@@ -47,7 +47,7 @@ class ModelConfig(BaseModel):
     """Configuration for the LLM model."""
 
     model_id: str = Field(
-        default="mistralai/Mistral-7B-Instruct-v0.3",
+        default="mistralai/Mistral-7B-Instruct-v0.2",
         description="Hugging Face model identifier.",
     )
     revision: str = Field(
@@ -59,14 +59,14 @@ class ModelConfig(BaseModel):
         description="Data type for model weights.",
     )
     gpu_memory_utilization: float = Field(
-        default=0.9,
+        default=0.8,
         ge=0.1,
         le=0.99,
         description="Fraction of GPU memory to use for model.",
     )
     max_model_len: int | None = Field(
-        default=None,
-        description="Maximum context length. None uses model default.",
+        default=4096,
+        description="Maximum context length. Lower values reduce memory usage.",
     )
     trust_remote_code: bool = Field(
         default=False,

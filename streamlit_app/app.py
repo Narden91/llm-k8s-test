@@ -11,6 +11,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from llm_operations.llm_config import LLMConfig
 from llm_operations.llm_inference import ConversationHistory, LLMEngine
 
+# Available model presets
+MODEL_PRESETS = {
+    "Mistral 7B Instruct v0.2": "mistralai/Mistral-7B-Instruct-v0.2",
+    "Phi-3 Mini 4K Instruct": "microsoft/Phi-3-mini-4k-instruct",
+    "Llama 2 7B Chat": "meta-llama/Llama-2-7b-chat-hf",
+    "Qwen2 7B Instruct": "Qwen/Qwen2-7B-Instruct",
+    "TinyLlama 1.1B Chat": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+}
+
 # Page configuration
 st.set_page_config(
     page_title="LLM Chat Assistant",
@@ -48,6 +57,9 @@ st.markdown(
         background-color: #d4edda;
         color: #155724;
     }
+    .new-chat-btn {
+        margin-top: 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -71,6 +83,18 @@ def initialize_session_state() -> None:
     if "model_loaded" not in st.session_state:
         st.session_state.model_loaded = False
 
+    if "current_model" not in st.session_state:
+        st.session_state.current_model = None
+
+
+def start_new_chat() -> None:
+    """Start a new chat session, keeping the model loaded."""
+    st.session_state.messages = []
+    st.session_state.conversation = ConversationHistory(
+        system_prompt="You are a helpful, harmless, and honest AI assistant. "
+        "Provide clear, accurate, and thoughtful responses."
+    )
+
 
 def render_sidebar() -> dict:
     """Render the sidebar with model settings.
@@ -81,20 +105,29 @@ def render_sidebar() -> dict:
     with st.sidebar:
         st.header("⚙️ Settings")
 
-        st.subheader("Model Configuration")
-        model_id = st.text_input(
-            "Model ID",
-            value="mistralai/Mistral-7B-Instruct-v0.3",
-            help="Hugging Face model identifier",
+        st.subheader("Model Selection")
+        
+        # Model dropdown with 5 presets
+        model_name = st.selectbox(
+            "Select Model",
+            options=list(MODEL_PRESETS.keys()),
+            index=0,
+            help="Choose from curated models optimized for chat",
+            disabled=st.session_state.model_loaded,
         )
+        model_id = MODEL_PRESETS[model_name]
+        
+        # Show model ID for reference
+        st.caption(f"📦 `{model_id}`")
 
         gpu_memory = st.slider(
             "GPU Memory Utilization",
             min_value=0.5,
-            max_value=0.95,
-            value=0.9,
+            max_value=0.9,
+            value=0.75,
             step=0.05,
-            help="Fraction of GPU memory to allocate",
+            help="Lower values = more stable, higher = more context capacity",
+            disabled=st.session_state.model_loaded,
         )
 
         st.divider()
@@ -106,20 +139,20 @@ def render_sidebar() -> dict:
             max_value=2.0,
             value=0.7,
             step=0.1,
-            help="Higher values = more creative, lower = more focused",
+            help="Higher = more creative, lower = more focused",
         )
 
         max_tokens = st.slider(
             "Max Tokens",
             min_value=128,
-            max_value=4096,
-            value=2048,
+            max_value=2048,
+            value=1024,
             step=128,
-            help="Maximum length of generated response",
+            help="Maximum response length",
         )
 
         top_p = st.slider(
-            "Top P (Nucleus Sampling)",
+            "Top P",
             min_value=0.1,
             max_value=1.0,
             value=0.95,
@@ -129,44 +162,68 @@ def render_sidebar() -> dict:
         st.divider()
         st.subheader("Actions")
 
-        load_clicked = st.button(
-            "🚀 Load Model",
-            disabled=st.session_state.model_loaded,
-            use_container_width=True,
-        )
-
-        if st.button("🗑️ Clear Chat", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.conversation.clear()
-            st.rerun()
+        # Load/Unload model button
+        if st.session_state.model_loaded:
+            if st.button("🔄 Unload Model", use_container_width=True, type="secondary"):
+                if st.session_state.llm_engine:
+                    st.session_state.llm_engine.unload_model()
+                st.session_state.llm_engine = None
+                st.session_state.model_loaded = False
+                st.session_state.current_model = None
+                st.session_state.messages = []
+                st.session_state.conversation.clear()
+                st.rerun()
+        else:
+            load_clicked = st.button(
+                "� Load Model",
+                use_container_width=True,
+                type="primary",
+            )
+        
+        # New Chat button (only when model is loaded)
+        new_chat_clicked = False
+        if st.session_state.model_loaded:
+            if st.button("💬 New Chat", use_container_width=True):
+                start_new_chat()
+                st.rerun()
 
         return {
             "model_id": model_id,
+            "model_name": model_name,
             "gpu_memory": gpu_memory,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "top_p": top_p,
-            "load_clicked": load_clicked,
+            "load_clicked": not st.session_state.model_loaded and 'load_clicked' in dir() and load_clicked,
         }
 
 
-def load_model(model_id: str, gpu_memory: float) -> None:
+def load_model(model_id: str, model_name: str, gpu_memory: float) -> None:
     """Load the LLM model.
 
     Args:
         model_id: Hugging Face model identifier.
+        model_name: Display name of the model.
         gpu_memory: GPU memory utilization fraction.
     """
-    with st.spinner("Loading model... This may take a few minutes."):
-        config = LLMConfig(
-            model={"model_id": model_id, "gpu_memory_utilization": gpu_memory}
-        )
-        engine = LLMEngine(config)
-        engine.load_model()
-        st.session_state.llm_engine = engine
-        st.session_state.model_loaded = True
-        st.success("✅ Model loaded successfully!")
-        st.rerun()
+    with st.spinner(f"Loading {model_name}... This may take a few minutes."):
+        try:
+            config = LLMConfig(
+                model={
+                    "model_id": model_id,
+                    "gpu_memory_utilization": gpu_memory,
+                    "max_model_len": 2048,  # Reduced for efficiency
+                }
+            )
+            engine = LLMEngine(config)
+            engine.load_model()
+            st.session_state.llm_engine = engine
+            st.session_state.model_loaded = True
+            st.session_state.current_model = model_name
+            st.success(f"✅ {model_name} loaded successfully!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Failed to load model: {str(e)}")
 
 
 def render_chat_messages() -> None:
@@ -179,14 +236,7 @@ def render_chat_messages() -> None:
 def generate_response(
     user_input: str, temperature: float, max_tokens: int, top_p: float
 ) -> None:
-    """Generate and stream the assistant's response.
-
-    Args:
-        user_input: The user's message.
-        temperature: Sampling temperature.
-        max_tokens: Maximum tokens to generate.
-        top_p: Nucleus sampling parameter.
-    """
+    """Generate and stream the assistant's response."""
     # Add user message to display
     st.session_state.messages.append({"role": "user", "content": user_input})
 
@@ -225,12 +275,13 @@ def main() -> None:
     """Main application entry point."""
     initialize_session_state()
 
-    # Header
+    # Header with current model info
+    model_info = f" • {st.session_state.current_model}" if st.session_state.current_model else ""
     st.markdown(
-        """
+        f"""
         <div class="main-header">
             <h1>🤖 LLM Chat Assistant</h1>
-            <p>Powered by Mistral 7B on NVIDIA A6000</p>
+            <p>Powered by vLLM on NVIDIA A6000{model_info}</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -240,18 +291,18 @@ def main() -> None:
     settings = render_sidebar()
 
     # Load model if requested
-    if settings["load_clicked"]:
-        load_model(settings["model_id"], settings["gpu_memory"])
+    if settings.get("load_clicked"):
+        load_model(settings["model_id"], settings["model_name"], settings["gpu_memory"])
 
     # Model status indicator
     if st.session_state.model_loaded:
         st.markdown(
-            '<div class="status-indicator status-ready">✅ Model Ready</div>',
+            f'<div class="status-indicator status-ready">✅ {st.session_state.current_model} Ready</div>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            '<div class="status-indicator status-loading">⏳ Model Not Loaded - Click "Load Model" in sidebar</div>',
+            '<div class="status-indicator status-loading">⏳ Select a model and click "Load Model"</div>',
             unsafe_allow_html=True,
         )
 
