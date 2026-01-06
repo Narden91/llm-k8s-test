@@ -137,11 +137,44 @@ kubectl port-forward svc/llm-chat-service 8501:8501
 
 ---
 
-## Troubleshooting
-
 | Issue | Solution |
 |-------|----------|
 | ImagePullBackOff | Check `ghcr-secret` is correct |
 | OOMKilled | Reduce GPU memory in sidebar |
 | Model not loading | Check HF token for gated models |
-| Can't access NodePort | Use port-forward instead |
+| Can't access NodePort | Use ngrok (see below) |
+
+---
+
+## External Access with ngrok
+
+If NodePort is blocked by firewall, use ngrok to share the app externally.
+
+### Setup (one-time)
+
+1. Sign up at https://ngrok.com/signup (free)
+2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+
+### Run ngrok
+
+```bash
+# Option 1: Run locally while port-forwarding
+kubectl port-forward svc/llm-chat-service 8501:8501 &
+ngrok http 8501
+
+# Option 2: Install ngrok in WSL
+wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+tar xvzf ngrok-v3-stable-linux-amd64.tgz
+./ngrok config add-authtoken YOUR_TOKEN
+./ngrok http 8501
+```
+
+### Share the URL
+
+ngrok provides a public URL like:
+```
+https://abc123.ngrok-free.app
+```
+
+Share this URL with anyone to access the app.
+

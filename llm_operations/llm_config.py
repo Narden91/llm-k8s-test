@@ -45,6 +45,8 @@ class GenerationConfig(BaseModel):
 
 class ModelConfig(BaseModel):
     """Configuration for the LLM model."""
+    
+    model_config = {"protected_namespaces": ()}
 
     model_id: str = Field(
         default="mistralai/Mistral-7B-Instruct-v0.2",

@@ -15,53 +15,135 @@ from llm_operations.metrics import MetricsLogger, InferenceMetrics
 
 # Model Presets - Compatible with vLLM 0.4.2 on NVIDIA A6000 (48GB VRAM)
 MODEL_PRESETS = {
-    # Recommended (tested and working)
     "Mistral 7B Instruct v0.2": {
         "id": "mistralai/Mistral-7B-Instruct-v0.2",
         "vram": "~14 GB",
-        "best_for": "General chat, stable baseline",
+        "desc": "General chat, stable baseline",
     },
     "Phi-3 Medium 14B": {
         "id": "microsoft/Phi-3-medium-4k-instruct",
         "vram": "~28 GB",
-        "best_for": "Reasoning, fast inference",
+        "desc": "Reasoning, fast inference",
     },
     "Qwen2 72B Instruct": {
         "id": "Qwen/Qwen2-72B-Instruct",
-        "vram": "~40 GB (4-bit)",
-        "best_for": "Advanced reasoning, multilingual",
+        "vram": "~40 GB",
+        "desc": "Advanced reasoning, multilingual",
     },
     "Llama 3.1 70B Instruct": {
         "id": "meta-llama/Llama-3.1-70B-Instruct",
-        "vram": "~40 GB (4-bit)",
-        "best_for": "Advanced chat, coding",
+        "vram": "~40 GB",
+        "desc": "Advanced chat, coding",
     },
     "CodeLlama 34B Instruct": {
         "id": "codellama/CodeLlama-34b-Instruct-hf",
         "vram": "~20 GB",
-        "best_for": "Code generation",
+        "desc": "Code generation",
     },
 }
 
 # Page configuration
 st.set_page_config(
-    page_title="LLM Chat Assistant",
-    page_icon="🤖",
+    page_title="LLM Chat",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS
+# Professional dark theme CSS
 st.markdown(
     """
     <style>
-    .stChatMessage { padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-    .main-header { text-align: center; padding: 1rem 0; border-bottom: 1px solid #e0e0e0; margin-bottom: 1rem; }
-    .status-indicator { padding: 0.5rem; border-radius: 0.25rem; text-align: center; margin-bottom: 1rem; }
-    .status-loading { background-color: #fff3cd; color: #856404; }
-    .status-ready { background-color: #d4edda; color: #155724; }
-    .model-info { font-size: 0.85rem; color: #666; margin-top: 0.25rem; }
-    .wandb-link { background-color: #FFBE00; color: black; padding: 0.5rem; border-radius: 0.25rem; text-align: center; margin-bottom: 1rem; }
+    /* Dark theme overrides */
+    .main-header {
+        text-align: center;
+        padding: 1.5rem 0;
+        border-bottom: 1px solid #2D3748;
+        margin-bottom: 1.5rem;
+    }
+    .main-header h1 {
+        color: #F7FAFC;
+        font-weight: 600;
+        font-size: 1.75rem;
+        margin: 0;
+    }
+    .main-header p {
+        color: #A0AEC0;
+        font-size: 0.9rem;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Status badges */
+    .status-badge {
+        display: inline-block;
+        padding: 0.4rem 1rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .status-ready {
+        background-color: #276749;
+        color: #C6F6D5;
+    }
+    .status-waiting {
+        background-color: #744210;
+        color: #FEFCBF;
+    }
+    
+    /* Model info card */
+    .model-card {
+        background-color: #1A202C;
+        border: 1px solid #2D3748;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+    }
+    .model-card code {
+        color: #90CDF4;
+        font-size: 0.75rem;
+    }
+    .model-card .label {
+        color: #718096;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .model-card .value {
+        color: #E2E8F0;
+    }
+    
+    /* WandB link */
+    .wandb-link {
+        background-color: #2D3748;
+        border: 1px solid #4A5568;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .wandb-link a {
+        color: #F6AD55;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .wandb-link a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Sidebar styling */
+    .sidebar-section {
+        margin-bottom: 1rem;
+    }
+    .sidebar-section h3 {
+        color: #A0AEC0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -70,26 +152,24 @@ st.markdown(
 
 def initialize_session_state() -> None:
     """Initialize Streamlit session state variables."""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = ConversationHistory(
+    defaults = {
+        "messages": [],
+        "conversation": ConversationHistory(
             system_prompt="You are a helpful, harmless, and honest AI assistant."
-        )
-    if "llm_engine" not in st.session_state:
-        st.session_state.llm_engine = None
-    if "model_loaded" not in st.session_state:
-        st.session_state.model_loaded = False
-    if "current_model" not in st.session_state:
-        st.session_state.current_model = None
-    if "metrics_logger" not in st.session_state:
-        st.session_state.metrics_logger = None
-    if "wandb_url" not in st.session_state:
-        st.session_state.wandb_url = None
+        ),
+        "llm_engine": None,
+        "model_loaded": False,
+        "current_model": None,
+        "metrics_logger": None,
+        "wandb_url": None,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 
 def start_new_chat() -> None:
-    """Start a new chat session, keeping the model loaded."""
+    """Start a new chat session."""
     st.session_state.messages = []
     st.session_state.conversation = ConversationHistory(
         system_prompt="You are a helpful, harmless, and honest AI assistant."
@@ -97,38 +177,35 @@ def start_new_chat() -> None:
 
 
 def render_sidebar() -> dict:
-    """Render the sidebar with model settings."""
+    """Render the sidebar with settings."""
     with st.sidebar:
-        st.header("⚙️ Settings")
-
-        # Model Selection
-        st.subheader("🤖 Model Selection")
+        st.markdown("### Model")
+        
         model_names = list(MODEL_PRESETS.keys())
-        
-        # Default to Mistral 7B (known working)
-        default_idx = model_names.index("Mistral 7B v0.2") if "Mistral 7B v0.2" in model_names else 0
-        
         model_name = st.selectbox(
             "Select Model",
             options=model_names,
-            index=default_idx,
+            index=0,
             disabled=st.session_state.model_loaded,
+            label_visibility="collapsed",
         )
         
         model_info = MODEL_PRESETS[model_name]
         st.markdown(
-            f'<div class="model-info">📦 <code>{model_info["id"]}</code><br>'
-            f'💾 VRAM: {model_info["vram"]}<br>'
-            f'✨ Best for: {model_info["best_for"]}</div>',
+            f'''<div class="model-card">
+                <div class="label">Model ID</div>
+                <code>{model_info["id"]}</code>
+                <div class="label" style="margin-top:0.5rem">VRAM</div>
+                <div class="value">{model_info["vram"]}</div>
+                <div class="label" style="margin-top:0.5rem">Best for</div>
+                <div class="value">{model_info["desc"]}</div>
+            </div>''',
             unsafe_allow_html=True,
         )
 
-        # GPU Settings
-        st.divider()
-        st.subheader("🎛️ GPU Settings")
-        
+        st.markdown("### GPU")
         gpu_memory = st.slider(
-            "GPU Memory Utilization",
+            "Memory Utilization",
             min_value=0.5,
             max_value=0.9,
             value=0.75,
@@ -137,49 +214,44 @@ def render_sidebar() -> dict:
         )
         
         context_length = st.select_slider(
-            "Max Context Length",
+            "Context Length",
             options=[1024, 2048, 4096, 8192],
             value=2048,
             disabled=st.session_state.model_loaded,
         )
 
-        # Generation Parameters
-        st.divider()
-        st.subheader("📝 Generation")
-        
+        st.markdown("### Generation")
         temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
         max_tokens = st.slider("Max Tokens", 128, 2048, 1024, 128)
         top_p = st.slider("Top P", 0.1, 1.0, 0.95, 0.05)
 
-        # WandB Settings
-        st.divider()
-        st.subheader("📊 Monitoring")
-        enable_wandb = st.checkbox("Enable WandB Logging", value=True)
+        st.markdown("### Monitoring")
+        enable_wandb = st.checkbox("Enable WandB", value=True)
 
-        # Actions
         st.divider()
-        st.subheader("🎬 Actions")
         
         load_clicked = False
         if st.session_state.model_loaded:
-            if st.button("🔄 Unload Model", use_container_width=True):
-                if st.session_state.llm_engine:
-                    st.session_state.llm_engine.unload_model()
-                if st.session_state.metrics_logger:
-                    st.session_state.metrics_logger.end_session()
-                st.session_state.llm_engine = None
-                st.session_state.model_loaded = False
-                st.session_state.current_model = None
-                st.session_state.metrics_logger = None
-                st.session_state.wandb_url = None
-                st.session_state.messages = []
-                st.rerun()
-            
-            if st.button("💬 New Chat", use_container_width=True):
-                start_new_chat()
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Unload", use_container_width=True):
+                    if st.session_state.llm_engine:
+                        st.session_state.llm_engine.unload_model()
+                    if st.session_state.metrics_logger:
+                        st.session_state.metrics_logger.end_session()
+                    st.session_state.llm_engine = None
+                    st.session_state.model_loaded = False
+                    st.session_state.current_model = None
+                    st.session_state.metrics_logger = None
+                    st.session_state.wandb_url = None
+                    st.session_state.messages = []
+                    st.rerun()
+            with col2:
+                if st.button("New Chat", use_container_width=True):
+                    start_new_chat()
+                    st.rerun()
         else:
-            load_clicked = st.button("🚀 Load Model", use_container_width=True, type="primary")
+            load_clicked = st.button("Load Model", use_container_width=True, type="primary")
 
         return {
             "model_id": model_info["id"],
@@ -195,15 +267,14 @@ def render_sidebar() -> dict:
 
 
 def load_model(settings: dict) -> None:
-    """Load the LLM model with optional WandB logging."""
+    """Load the LLM model."""
     model_name = settings["model_name"]
     model_id = settings["model_id"]
     
-    with st.spinner(f"Loading {model_name}... This may take a few minutes."):
+    with st.spinner(f"Loading {model_name}..."):
         try:
             start_time = time.time()
             
-            # Initialize metrics logger
             if settings["enable_wandb"]:
                 metrics = MetricsLogger(project="llm-chat")
                 wandb_url = metrics.start_session(
@@ -215,7 +286,6 @@ def load_model(settings: dict) -> None:
                 st.session_state.metrics_logger = metrics
                 st.session_state.wandb_url = wandb_url
             
-            # Load model
             config = LLMConfig(
                 model={
                     "model_id": model_id,
@@ -229,7 +299,6 @@ def load_model(settings: dict) -> None:
             
             load_time = time.time() - start_time
             
-            # Log load time
             if st.session_state.metrics_logger:
                 st.session_state.metrics_logger.log_model_load(load_time, model_name)
             
@@ -237,24 +306,24 @@ def load_model(settings: dict) -> None:
             st.session_state.model_loaded = True
             st.session_state.current_model = model_name
             
-            st.success(f"✅ {model_name} loaded in {load_time:.1f}s!")
+            st.success(f"Model loaded in {load_time:.1f}s")
             st.rerun()
             
         except Exception as e:
-            st.error(f"❌ Failed to load model: {str(e)}")
+            st.error(f"Failed to load model: {str(e)}")
             if st.session_state.metrics_logger:
                 st.session_state.metrics_logger.end_session()
 
 
 def render_chat_messages() -> None:
-    """Render the chat message history."""
+    """Render chat history."""
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
 
 def generate_response(settings: dict, user_input: str) -> None:
-    """Generate and stream the assistant's response with metrics."""
+    """Generate and stream response."""
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
@@ -281,12 +350,11 @@ def generate_response(settings: dict, user_input: str) -> None:
 
             response_placeholder.markdown(full_response)
             
-            # Calculate and log metrics
             latency = time.time() - start_time
             
             if st.session_state.metrics_logger:
                 metrics = InferenceMetrics(
-                    input_tokens=len(user_input.split()),  # Approximate
+                    input_tokens=len(user_input.split()),
                     output_tokens=token_count,
                     latency_seconds=latency,
                     temperature=settings["temperature"],
@@ -301,56 +369,50 @@ def generate_response(settings: dict, user_input: str) -> None:
             )
             
         except Exception as e:
-            error_msg = f"Error generating response: {str(e)}"
-            response_placeholder.error(error_msg)
+            response_placeholder.error(f"Error: {str(e)}")
             st.session_state.messages.append(
-                {"role": "assistant", "content": f"⚠️ {error_msg}"}
+                {"role": "assistant", "content": f"Error: {str(e)}"}
             )
 
 
 def main() -> None:
-    """Main application entry point."""
+    """Main application."""
     initialize_session_state()
 
     # Header
-    model_info = f" • {st.session_state.current_model}" if st.session_state.current_model else ""
+    model_info = f" | {st.session_state.current_model}" if st.session_state.current_model else ""
     st.markdown(
-        f"""
-        <div class="main-header">
-            <h1>🤖 LLM Chat Assistant</h1>
-            <p>Powered by vLLM on NVIDIA A6000{model_info}</p>
-        </div>
-        """,
+        f'''<div class="main-header">
+            <h1>LLM Chat</h1>
+            <p>vLLM on NVIDIA A6000{model_info}</p>
+        </div>''',
         unsafe_allow_html=True,
     )
 
-    # Sidebar
     settings = render_sidebar()
 
-    # Load model if requested
     if settings["load_clicked"]:
         load_model(settings)
 
     # WandB link
     if st.session_state.wandb_url:
         st.markdown(
-            f'<div class="wandb-link">📊 <a href="{st.session_state.wandb_url}" target="_blank">View WandB Dashboard</a></div>',
+            f'<div class="wandb-link"><a href="{st.session_state.wandb_url}" target="_blank">View WandB Dashboard</a></div>',
             unsafe_allow_html=True,
         )
 
-    # Model status
+    # Status
     if st.session_state.model_loaded:
         st.markdown(
-            f'<div class="status-indicator status-ready">✅ {st.session_state.current_model} Ready</div>',
+            f'<div class="status-badge status-ready">{st.session_state.current_model} Ready</div>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            '<div class="status-indicator status-loading">⏳ Select a model and click "Load Model"</div>',
+            '<div class="status-badge status-waiting">Select a model to begin</div>',
             unsafe_allow_html=True,
         )
 
-    # Chat
     render_chat_messages()
 
     if prompt := st.chat_input("Type your message...", disabled=not st.session_state.model_loaded):
