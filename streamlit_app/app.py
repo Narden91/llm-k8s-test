@@ -86,18 +86,35 @@ st.markdown(
 
 @st.cache_resource(show_spinner=False)
 def get_global_engine():
-    """Load the LLM engine once and share across all users."""
-    config = LLMConfig(
-        model={
-            "model_id": MODEL_ID,
-            "gpu_memory_utilization": GPU_MEMORY,
-            "max_model_len": CONTEXT_LENGTH,
-            "trust_remote_code": True,
-        }
-    )
-    engine = LLMEngine(config)
-    engine.load_model()
-    return engine
+    """Load the LLM engine once with fallback for gated models."""
+    models_to_try = [
+        ("meta-llama/Meta-Llama-3-8B-Instruct", "Llama 3 8B Instruct"),
+        ("mistralai/Mistral-7B-Instruct-v0.2", "Mistral 7B v0.2"),
+    ]
+    
+    last_error = None
+    for model_id, model_name in models_to_try:
+        try:
+            config = LLMConfig(
+                model={
+                    "model_id": model_id,
+                    "gpu_memory_utilization": GPU_MEMORY,
+                    "max_model_len": CONTEXT_LENGTH,
+                    "trust_remote_code": True,
+                }
+            )
+            engine = LLMEngine(config)
+            engine.load_model()
+            # Store which model was loaded
+            st.session_state._loaded_model_name = model_name
+            return engine
+        except Exception as e:
+            last_error = e
+            if "gated" in str(e).lower() or "403" in str(e):
+                continue  # Try next model
+            raise  # Other errors should propagate
+    
+    raise last_error  # All models failed
 
 
 @st.cache_resource(show_spinner=False)
@@ -216,33 +233,35 @@ def main() -> None:
     """Main application."""
     initialize_session_state()
 
-    # Header
-    st.markdown(
-        f'''<div class="main-header">
-            <h1>LLM Chat</h1>
-            <p>{MODEL_NAME} on NVIDIA A6000</p>
-        </div>''',
-        unsafe_allow_html=True,
-    )
-
     settings = render_sidebar()
 
     # Load global engine (cached - only loads once)
-    with st.spinner(f"Loading {MODEL_NAME}... This only happens once on startup."):
+    with st.spinner("Loading model... This only happens once on startup."):
         try:
             engine = get_global_engine()
             metrics = get_global_metrics()
             model_ready = True
+            loaded_model = st.session_state.get("_loaded_model_name", MODEL_NAME)
         except Exception as e:
             st.error(f"Failed to load model: {str(e)}")
             model_ready = False
             engine = None
             metrics = None
+            loaded_model = "None"
+
+    # Header
+    st.markdown(
+        f'''<div class="main-header">
+            <h1>LLM Chat</h1>
+            <p>{loaded_model} on NVIDIA A6000</p>
+        </div>''',
+        unsafe_allow_html=True,
+    )
 
     # Status
     if model_ready:
         st.markdown(
-            f'<div class="status-badge status-ready">{MODEL_NAME} Ready</div>',
+            f'<div class="status-badge status-ready">{loaded_model} Ready</div>',
             unsafe_allow_html=True,
         )
     else:
