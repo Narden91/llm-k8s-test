@@ -49,7 +49,7 @@ class ModelConfig(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     model_id: str = Field(
-        default="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        default="meta-llama/Meta-Llama-3-8B-Instruct",
         description="Hugging Face model identifier.",
     )
     revision: str = Field(

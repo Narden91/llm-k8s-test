@@ -13,9 +13,9 @@ from llm_operations.llm_config import LLMConfig
 from llm_operations.llm_inference import ConversationHistory, LLMEngine
 from llm_operations.metrics import MetricsLogger, InferenceMetrics
 
-# Fixed model configuration
-MODEL_ID = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
-MODEL_NAME = "DeepSeek R1 8B"
+# Fixed model configuration - Compatible with vLLM 0.4.2
+MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
+MODEL_NAME = "Llama 3 8B Instruct"
 GPU_MEMORY = 0.85
 CONTEXT_LENGTH = 4096
 
