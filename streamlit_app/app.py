@@ -13,55 +13,33 @@ from llm_operations.llm_config import LLMConfig
 from llm_operations.llm_inference import ConversationHistory, LLMEngine
 from llm_operations.metrics import MetricsLogger, InferenceMetrics
 
-# 2025 Model Presets - Optimized for NVIDIA A6000 (48GB VRAM)
+# Model Presets - Compatible with vLLM 0.4.2 on NVIDIA A6000 (48GB VRAM)
 MODEL_PRESETS = {
-    # Compact Models (≤20 GB VRAM in 4-bit)
-    "⚡ Phi-4 Medium (14B)": {
-        "id": "microsoft/Phi-4",
-        "vram": "~7-10 GB",
-        "best_for": "Reasoning, fast inference",
-    },
-    "⚡ Gemma 3 27B": {
-        "id": "google/gemma-3-27b-it",
-        "vram": "~20 GB",
-        "best_for": "General, 128K context",
-    },
-    "⚡ Qwen3 30B MoE": {
-        "id": "Qwen/Qwen3-30B-A3B",
-        "vram": "~15-20 GB",
-        "best_for": "Multilingual, tools",
-    },
-    "⚡ DeepSeek V3 16B": {
-        "id": "deepseek-ai/DeepSeek-V3-Base",
-        "vram": "~8-12 GB",
-        "best_for": "General, code",
-    },
-    "🧑‍💻 DeepSeek Coder V2": {
-        "id": "deepseek-ai/DeepSeek-Coder-V2-Instruct",
-        "vram": "~16 GB",
-        "best_for": "Code generation, math",
-    },
-    # Large Models (35-45 GB VRAM in 4-bit)
-    "🦙 Llama 4 Scout 70B": {
-        "id": "meta-llama/Llama-4-Scout-70B",
-        "vram": "~35 GB",
-        "best_for": "Advanced chat, agents",
-    },
-    "🔮 Qwen3 72B": {
-        "id": "Qwen/Qwen3-72B-Instruct",
-        "vram": "~36 GB",
-        "best_for": "Research, 128K context",
-    },
-    # Legacy Models (known working)
-    "✅ Mistral 7B v0.2": {
+    # Recommended (tested and working)
+    "Mistral 7B Instruct v0.2": {
         "id": "mistralai/Mistral-7B-Instruct-v0.2",
         "vram": "~14 GB",
-        "best_for": "Stable, tested",
+        "best_for": "General chat, stable baseline",
     },
-    "🚀 TinyLlama 1.1B": {
-        "id": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        "vram": "~2 GB",
-        "best_for": "Ultra-fast testing",
+    "Phi-3 Medium 14B": {
+        "id": "microsoft/Phi-3-medium-4k-instruct",
+        "vram": "~28 GB",
+        "best_for": "Reasoning, fast inference",
+    },
+    "Qwen2 72B Instruct": {
+        "id": "Qwen/Qwen2-72B-Instruct",
+        "vram": "~40 GB (4-bit)",
+        "best_for": "Advanced reasoning, multilingual",
+    },
+    "Llama 3.1 70B Instruct": {
+        "id": "meta-llama/Llama-3.1-70B-Instruct",
+        "vram": "~40 GB (4-bit)",
+        "best_for": "Advanced chat, coding",
+    },
+    "CodeLlama 34B Instruct": {
+        "id": "codellama/CodeLlama-34b-Instruct-hf",
+        "vram": "~20 GB",
+        "best_for": "Code generation",
     },
 }
 
