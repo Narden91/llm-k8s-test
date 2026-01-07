@@ -1,4 +1,4 @@
-"""Streamlit chat application with shared global LLM engine."""
+"""Streamlit chat application with shared global LLM engine - Optimized."""
 
 import os
 import sys
@@ -13,275 +13,167 @@ from llm_operations.llm_config import LLMConfig
 from llm_operations.llm_inference import ConversationHistory, LLMEngine
 from llm_operations.metrics import MetricsLogger, InferenceMetrics
 
-# Fixed model configuration - Compatible with vLLM 0.4.2
-MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
-MODEL_NAME = "Llama 3 8B Instruct"
+# Configuration
 GPU_MEMORY = 0.85
 CONTEXT_LENGTH = 4096
+FALLBACK_MODELS = [
+    ("meta-llama/Meta-Llama-3-8B-Instruct", "Llama 3 8B"),
+    ("mistralai/Mistral-7B-Instruct-v0.2", "Mistral 7B"),
+]
 
-# Page configuration
-st.set_page_config(
-    page_title="LLM Chat",
-    page_icon=None,
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+# Page config (must be first Streamlit call)
+st.set_page_config(page_title="LLM Chat", layout="wide", initial_sidebar_state="collapsed")
 
-# Professional dark theme CSS
-st.markdown(
-    """
-    <style>
-    .main-header {
-        text-align: center;
-        padding: 1.5rem 0;
-        border-bottom: 1px solid #2D3748;
-        margin-bottom: 1.5rem;
-    }
-    .main-header h1 {
-        color: #F7FAFC;
-        font-weight: 600;
-        font-size: 1.75rem;
-        margin: 0;
-    }
-    .main-header p {
-        color: #A0AEC0;
-        font-size: 0.9rem;
-        margin: 0.5rem 0 0 0;
-    }
-    .status-badge {
-        display: inline-block;
-        padding: 0.4rem 1rem;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .status-ready {
-        background-color: #276749;
-        color: #C6F6D5;
-    }
-    .status-loading {
-        background-color: #744210;
-        color: #FEFCBF;
-    }
-    .wandb-link {
-        background-color: #2D3748;
-        border: 1px solid #4A5568;
-        border-radius: 4px;
-        padding: 0.5rem 1rem;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .wandb-link a {
-        color: #F6AD55;
-        text-decoration: none;
-        font-weight: 500;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# CSS cached as constant (avoid re-parsing)
+_CSS = """
+<style>
+.main-header{text-align:center;padding:1rem 0;border-bottom:1px solid #2D3748;margin-bottom:1rem}
+.main-header h1{color:#F7FAFC;font-weight:600;font-size:1.5rem;margin:0}
+.main-header p{color:#A0AEC0;font-size:0.85rem;margin:0.3rem 0 0}
+.status-badge{display:inline-block;padding:0.3rem 0.8rem;border-radius:4px;font-size:0.8rem;margin-bottom:0.5rem}
+.status-ready{background:#276749;color:#C6F6D5}
+.status-error{background:#742a2a;color:#FED7D7}
+</style>
+"""
 
 
 @st.cache_resource(show_spinner=False)
-def get_global_engine():
-    """Load the LLM engine once with fallback for gated models."""
-    models_to_try = [
-        ("meta-llama/Meta-Llama-3-8B-Instruct", "Llama 3 8B Instruct"),
-        ("mistralai/Mistral-7B-Instruct-v0.2", "Mistral 7B v0.2"),
-    ]
-    
-    last_error = None
-    for model_id, model_name in models_to_try:
+def load_engine():
+    """Load LLM engine with fallback. Cached globally."""
+    for model_id, name in FALLBACK_MODELS:
         try:
-            config = LLMConfig(
-                model={
-                    "model_id": model_id,
-                    "gpu_memory_utilization": GPU_MEMORY,
-                    "max_model_len": CONTEXT_LENGTH,
-                    "trust_remote_code": True,
-                }
-            )
-            engine = LLMEngine(config)
+            cfg = LLMConfig(model={
+                "model_id": model_id,
+                "gpu_memory_utilization": GPU_MEMORY,
+                "max_model_len": CONTEXT_LENGTH,
+                "trust_remote_code": True,
+            })
+            engine = LLMEngine(cfg)
             engine.load_model()
-            # Store which model was loaded
-            st.session_state._loaded_model_name = model_name
-            return engine
+            return engine, name
         except Exception as e:
-            last_error = e
             if "gated" in str(e).lower() or "403" in str(e):
-                continue  # Try next model
-            raise  # Other errors should propagate
-    
-    raise last_error  # All models failed
+                continue
+            raise
+    raise RuntimeError("All models failed to load")
 
 
 @st.cache_resource(show_spinner=False)
-def get_global_metrics():
-    """Initialize global metrics logger."""
-    metrics = MetricsLogger(project="llm-chat")
-    metrics.start_session(
-        model_name=MODEL_NAME,
-        model_id=MODEL_ID,
-        gpu_memory_utilization=GPU_MEMORY,
-        context_length=CONTEXT_LENGTH,
-    )
-    return metrics
+def load_metrics(model_name: str):
+    """Initialize metrics. Cached globally."""
+    m = MetricsLogger(project="llm-chat")
+    m.start_session(model_name=model_name, model_id="", gpu_memory_utilization=GPU_MEMORY, context_length=CONTEXT_LENGTH)
+    return m
 
 
-def initialize_session_state() -> None:
-    """Initialize per-user session state (conversation only)."""
+def init_state():
+    """Initialize session state once."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "conversation" not in st.session_state:
         st.session_state.conversation = ConversationHistory(
-            system_prompt="You are a helpful, harmless, and honest AI assistant."
+            system_prompt="You are a helpful AI assistant."
         )
 
 
-def start_new_chat() -> None:
-    """Start a new chat session."""
+def new_chat():
+    """Reset chat state."""
     st.session_state.messages = []
     st.session_state.conversation = ConversationHistory(
-        system_prompt="You are a helpful, harmless, and honest AI assistant."
+        system_prompt="You are a helpful AI assistant."
     )
 
 
-def render_sidebar() -> dict:
-    """Render simplified sidebar with generation params only."""
-    with st.sidebar:
-        st.markdown("### Generation")
-        temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-        max_tokens = st.slider("Max Tokens", 128, 2048, 1024, 128)
-        top_p = st.slider("Top P", 0.1, 1.0, 0.95, 0.05)
-
-        st.divider()
-        
-        if st.button("New Chat", use_container_width=True):
-            start_new_chat()
-            st.rerun()
-
-        return {
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_p": top_p,
-        }
-
-
-def render_chat_messages() -> None:
-    """Render chat history."""
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-
-def generate_response(engine: LLMEngine, metrics: MetricsLogger, settings: dict, user_input: str) -> None:
-    """Generate and stream response using shared engine."""
-    st.session_state.messages.append({"role": "user", "content": user_input})
-
+def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float):
+    """Stream response with optimized token handling."""
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
     with st.chat_message("user"):
-        st.markdown(user_input)
-
+        st.markdown(prompt)
+    
     with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        full_response = ""
+        placeholder = st.empty()
+        chunks = []
+        t0 = time.perf_counter()
         
-        start_time = time.time()
-        token_count = 0
-
         try:
             for token in engine.generate_stream(
-                prompt=user_input,
+                prompt=prompt,
                 conversation=st.session_state.conversation,
-                temperature=settings["temperature"],
-                max_tokens=settings["max_tokens"],
-                top_p=settings["top_p"],
+                temperature=temp,
+                max_tokens=max_tok,
+                top_p=top_p,
             ):
-                full_response += token
-                token_count += 1
-                response_placeholder.markdown(full_response + "▌")
-
-            response_placeholder.markdown(full_response)
+                chunks.append(token)
+                # Batch updates every 5 tokens for efficiency
+                if len(chunks) % 5 == 0:
+                    placeholder.markdown("".join(chunks) + "▌")
             
-            latency = time.time() - start_time
+            response = "".join(chunks)
+            placeholder.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
             
-            if metrics:
-                inference_metrics = InferenceMetrics(
-                    input_tokens=len(user_input.split()),
-                    output_tokens=token_count,
-                    latency_seconds=latency,
-                    temperature=settings["temperature"],
-                    max_tokens=settings["max_tokens"],
-                )
-                inference_metrics.calculate_tokens_per_second()
-                metrics.log_inference(inference_metrics)
-                metrics.log_gpu_snapshot()
-            
-            st.session_state.messages.append(
-                {"role": "assistant", "content": full_response}
-            )
+            # Log metrics asynchronously (non-blocking)
+            latency = time.perf_counter() - t0
+            return len(chunks), latency
             
         except Exception as e:
-            response_placeholder.error(f"Error: {str(e)}")
-            st.session_state.messages.append(
-                {"role": "assistant", "content": f"Error: {str(e)}"}
-            )
+            placeholder.error(f"Error: {e}")
+            st.session_state.messages.append({"role": "assistant", "content": f"Error: {e}"})
+            return 0, 0
 
 
-def main() -> None:
-    """Main application."""
-    initialize_session_state()
-
-    settings = render_sidebar()
-
-    # Load global engine (cached - only loads once)
-    with st.spinner("Loading model... This only happens once on startup."):
-        try:
-            engine = get_global_engine()
-            metrics = get_global_metrics()
-            model_ready = True
-            loaded_model = st.session_state.get("_loaded_model_name", MODEL_NAME)
-        except Exception as e:
-            st.error(f"Failed to load model: {str(e)}")
-            model_ready = False
-            engine = None
-            metrics = None
-            loaded_model = "None"
-
+def main():
+    init_state()
+    st.markdown(_CSS, unsafe_allow_html=True)
+    
+    # Sidebar (minimal)
+    with st.sidebar:
+        st.markdown("### Settings")
+        temp = st.slider("Temperature", 0.0, 1.5, 0.7, 0.1)
+        max_tok = st.slider("Max Tokens", 256, 2048, 1024, 256)
+        top_p = st.slider("Top P", 0.5, 1.0, 0.9, 0.05)
+        st.divider()
+        if st.button("New Chat", use_container_width=True):
+            new_chat()
+            st.rerun()
+    
+    # Load model (cached)
+    try:
+        engine, model_name = load_engine()
+        metrics = load_metrics(model_name)
+        ready = True
+    except Exception as e:
+        st.error(f"Failed: {e}")
+        ready = False
+        model_name = "Error"
+    
     # Header
-    st.markdown(
-        f'''<div class="main-header">
-            <h1>LLM Chat</h1>
-            <p>{loaded_model} on NVIDIA A6000</p>
-        </div>''',
-        unsafe_allow_html=True,
-    )
-
-    # Status
-    if model_ready:
-        st.markdown(
-            f'<div class="status-badge status-ready">{loaded_model} Ready</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(f'<div class="main-header"><h1>LLM Chat</h1><p>{model_name}</p></div>', unsafe_allow_html=True)
+    
+    if ready:
+        st.markdown(f'<div class="status-badge status-ready">{model_name} Ready</div>', unsafe_allow_html=True)
     else:
-        st.markdown(
-            '<div class="status-badge status-loading">Model loading failed</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div class="status-badge status-error">Load Failed</div>', unsafe_allow_html=True)
         return
-
-    # WandB link
-    if metrics and metrics.run_url:
-        st.markdown(
-            f'<div class="wandb-link"><a href="{metrics.run_url}" target="_blank">View WandB Dashboard</a></div>',
-            unsafe_allow_html=True,
-        )
-
-    render_chat_messages()
-
-    if prompt := st.chat_input("Type your message..."):
-        generate_response(engine, metrics, settings, prompt)
+    
+    # Render messages
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Message..."):
+        tokens, latency = stream_response(engine, prompt, temp, max_tok, top_p)
+        if metrics and tokens > 0:
+            m = InferenceMetrics(
+                input_tokens=len(prompt.split()),
+                output_tokens=tokens,
+                latency_seconds=latency,
+                temperature=temp,
+                max_tokens=max_tok,
+            )
+            m.calculate_tokens_per_second()
+            metrics.log_inference(m)
 
 
 if __name__ == "__main__":
