@@ -52,27 +52,41 @@ class ConversationHistory:
         self.messages.append(ConversationMessage(role="assistant", content=content))
 
     def format_for_mistral(self) -> str:
-        """Format conversation history for Mistral Instruct model.
-
-        Returns:
-            Formatted prompt string for Mistral.
-        """
-        prompt_parts = []
-
+        """Format for Mistral Instruct."""
+        parts = []
         if self.system_prompt:
-            prompt_parts.append(f"<s>[INST] {self.system_prompt}\n\n")
+            parts.append(f"<s>[INST] {self.system_prompt}\n\n")
         else:
-            prompt_parts.append("<s>[INST] ")
+            parts.append("<s>[INST] ")
 
         for i, msg in enumerate(self.messages):
             if msg.role == "user":
                 if i > 0:
-                    prompt_parts.append("[INST] ")
-                prompt_parts.append(f"{msg.content} [/INST]")
+                    parts.append("[INST] ")
+                parts.append(f"{msg.content} [/INST]")
             else:
-                prompt_parts.append(f" {msg.content}</s>")
+                parts.append(f" {msg.content}</s>")
+        return "".join(parts)
 
-        return "".join(prompt_parts)
+    def format_for_llama3(self) -> str:
+        """Format for Llama 3 Instruct."""
+        parts = ["<|begin_of_text|>"]
+        if self.system_prompt:
+            parts.append(f"<|start_header_id|>system<|end_header_id|>\n\n{self.system_prompt}<|eot_id|>")
+        
+        for msg in self.messages:
+            role = msg.role
+            parts.append(f"<|start_header_id|>{role}<|end_header_id|>\n\n{msg.content}<|eot_id|>")
+        
+        parts.append("<|start_header_id|>assistant<|end_header_id|>\n\n")
+        return "".join(parts)
+
+    def format(self, model_id: str = "") -> str:
+        """Auto-detect format based on model ID."""
+        model_lower = model_id.lower()
+        if "llama-3" in model_lower or "llama3" in model_lower:
+            return self.format_for_llama3()
+        return self.format_for_mistral()
 
     def clear(self) -> None:
         """Clear conversation history."""
@@ -158,11 +172,16 @@ class LLMEngine:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         # Build full prompt with conversation context
+        model_id = self.config.model.model_id
         if conversation is not None:
             conversation.add_user_message(prompt)
-            full_prompt = conversation.format_for_mistral()
+            full_prompt = conversation.format(model_id)
         else:
-            full_prompt = f"<s>[INST] {prompt} [/INST]"
+            # Simple single-turn prompt
+            if "llama-3" in model_id.lower() or "llama3" in model_id.lower():
+                full_prompt = f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+            else:
+                full_prompt = f"<s>[INST] {prompt} [/INST]"
 
         sampling_params = self._get_sampling_params(**generation_kwargs)
         outputs: list[RequestOutput] = self._llm.generate(
@@ -200,11 +219,16 @@ class LLMEngine:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         # Build full prompt with conversation context
+        model_id = self.config.model.model_id
         if conversation is not None:
             conversation.add_user_message(prompt)
-            full_prompt = conversation.format_for_mistral()
+            full_prompt = conversation.format(model_id)
         else:
-            full_prompt = f"<s>[INST] {prompt} [/INST]"
+            # Simple single-turn prompt
+            if "llama-3" in model_id.lower() or "llama3" in model_id.lower():
+                full_prompt = f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+            else:
+                full_prompt = f"<s>[INST] {prompt} [/INST]"
 
         sampling_params = self._get_sampling_params(**generation_kwargs)
 
