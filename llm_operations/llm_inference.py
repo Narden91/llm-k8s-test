@@ -105,12 +105,22 @@ class LLMEngine:
         self.config = config or LLMConfig()
         self._llm: LLM | None = None
 
-    def load_model(self) -> None:
-        """Load the LLM model into memory.
+    def load_model(self, warmup: bool = True) -> float:
+        """Load the LLM model into memory with optional warm-up.
 
         This should be called once at startup. Model loading may take
         several minutes for large models.
+
+        Args:
+            warmup: If True, run a warm-up inference to initialize CUDA kernels.
+                   This eliminates cold start delays on the first real request.
+
+        Returns:
+            Total load time in seconds (including warm-up if enabled).
         """
+        import time
+        start_time = time.perf_counter()
+        
         logger.info(f"Loading model: {self.config.model.model_id}")
 
         # Use max_model_len to limit context and reduce memory usage
@@ -126,7 +136,46 @@ class LLMEngine:
             tensor_parallel_size=self.config.tensor_parallel_size,
         )
 
-        logger.info("Model loaded successfully.")
+        load_time = time.perf_counter() - start_time
+        logger.info(f"Model loaded in {load_time:.2f}s")
+
+        if warmup:
+            warmup_time = self._warmup()
+            total_time = time.perf_counter() - start_time
+            logger.info(f"Model ready (load: {load_time:.2f}s, warmup: {warmup_time:.2f}s, total: {total_time:.2f}s)")
+            return total_time
+
+        return load_time
+
+    def _warmup(self) -> float:
+        """Run warm-up inference to initialize CUDA kernels.
+
+        This eliminates cold start latency on the first real inference
+        by pre-compiling CUDA kernels and warming up GPU caches.
+
+        Returns:
+            Warm-up duration in seconds.
+        """
+        import time
+        
+        if self._llm is None:
+            return 0.0
+
+        logger.info("Running warm-up inference...")
+        start_time = time.perf_counter()
+
+        # Short warm-up prompt to initialize kernels without heavy computation
+        warmup_prompt = "Hello"
+        warmup_params = SamplingParams(max_tokens=5, temperature=0.0)
+        
+        try:
+            self._llm.generate([warmup_prompt], warmup_params, use_tqdm=False)
+        except Exception as e:
+            logger.warning(f"Warm-up inference failed (non-critical): {e}")
+
+        warmup_time = time.perf_counter() - start_time
+        logger.info(f"Warm-up completed in {warmup_time:.2f}s")
+        return warmup_time
 
     def _get_sampling_params(self, **overrides) -> SamplingParams:
         """Create sampling parameters from config with optional overrides.
