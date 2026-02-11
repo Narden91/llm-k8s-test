@@ -84,7 +84,7 @@ def new_chat():
 
 
 def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float):
-    """Stream response with optimized token handling."""
+    """Stream response with accurate token metrics."""
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.chat_message("user"):
@@ -94,12 +94,13 @@ def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float
         placeholder = st.empty()
         chunks = []
         t0 = time.perf_counter()
+        request_output = None
         
         try:
             # Add user message to conversation before calling generate_stream
             st.session_state.conversation.add_user_message(prompt)
             
-            for token in engine.generate_stream(
+            for token, output in engine.generate_stream(
                 prompt=prompt,
                 conversation=st.session_state.conversation,
                 temperature=temp,
@@ -107,6 +108,7 @@ def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float
                 top_p=top_p,
             ):
                 chunks.append(token)
+                request_output = output
                 # Batch updates every 5 tokens for efficiency
                 if len(chunks) % 5 == 0:
                     placeholder.markdown("".join(chunks) + "▌")
@@ -115,14 +117,24 @@ def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float
             placeholder.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
             
-            # Log metrics asynchronously (non-blocking)
+            # Extract accurate token counts from RequestOutput
             latency = time.perf_counter() - t0
-            return len(chunks), latency
+            if request_output:
+                # Get prompt token count from RequestOutput
+                input_tokens = len(request_output.prompt_token_ids)
+                # Get output token count from CompletionOutput
+                output_tokens = len(request_output.outputs[0].token_ids)
+            else:
+                # Fallback if no output (shouldn't happen)
+                input_tokens = 0
+                output_tokens = 0
+            
+            return input_tokens, output_tokens, latency
             
         except Exception as e:
             placeholder.error(f"Error: {e}")
             st.session_state.messages.append({"role": "assistant", "content": f"Error: {e}"})
-            return 0, 0
+            return 0, 0, 0
 
 
 def main():
@@ -166,11 +178,11 @@ def main():
     
     # Chat input
     if prompt := st.chat_input("Message..."):
-        tokens, latency = stream_response(engine, prompt, temp, max_tok, top_p)
-        if metrics and tokens > 0:
+        input_tokens, output_tokens, latency = stream_response(engine, prompt, temp, max_tok, top_p)
+        if metrics and output_tokens > 0:
             m = InferenceMetrics(
-                input_tokens=len(prompt.split()),
-                output_tokens=tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 latency_seconds=latency,
                 temperature=temp,
                 max_tokens=max_tok,

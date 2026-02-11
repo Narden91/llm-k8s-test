@@ -252,7 +252,7 @@ class LLMEngine:
         prompt: str,
         conversation: ConversationHistory | None = None,
         **generation_kwargs,
-    ) -> Iterator[str]:
+    ) -> Iterator[tuple[str, RequestOutput | None]]:
         """Generate a response for the given prompt.
         
         WARNING: This method does NOT provide true token-by-token streaming.
@@ -270,7 +270,8 @@ class LLMEngine:
             **generation_kwargs: Override generation parameters.
 
         Yields:
-            Generated text as a single chunk (not true streaming).
+            Tuple of (generated_text, request_output) where request_output contains
+            accurate token counts. The RequestOutput is only yielded on the final chunk.
 
         Raises:
             RuntimeError: If model hasn't been loaded.
@@ -297,10 +298,11 @@ class LLMEngine:
             [full_prompt], sampling_params, use_tqdm=False
         )
         
-        full_response = outputs[0].outputs[0].text.strip()
+        request_output = outputs[0]
+        full_response = request_output.outputs[0].text.strip()
         
-        # Yield complete response as single chunk
-        yield full_response
+        # Yield complete response with RequestOutput for metrics
+        yield full_response, request_output
 
         # Update conversation history with complete response
         if conversation is not None:
