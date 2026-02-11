@@ -33,17 +33,16 @@ class S3Operations:
             # Ensure folder path ends with '/'
             folder = folder.rstrip('/') + '/'
             
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=folder
-            )
+            # Use paginator to handle folders with >1000 objects
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            count = 0
             
-            if 'Contents' not in response:
-                return 0
-                
-            txt_files = [obj for obj in response['Contents'] 
-                        if obj['Key'].endswith('.txt')]
-            return len(txt_files)
+            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=folder):
+                for obj in page.get('Contents', []):
+                    if obj['Key'].endswith('.txt'):
+                        count += 1
+            
+            return count
         except Exception as e:
             console.print(f"[red]Error counting txt files: {str(e)}[/]")
             return 0
@@ -62,18 +61,15 @@ class S3Operations:
             # Ensure folder path ends with '/'
             folder = folder.rstrip('/') + '/'
             
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=folder
-            )
+            # Use paginator to handle folders with >1000 objects
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            image_files = []
             
-            if 'Contents' not in response:
-                return []
-                
-            image_files = [
-                obj['Key'] for obj in response['Contents']
-                if obj['Key'].lower().endswith(('.png', '.jpg', '.jpeg'))
-            ]
+            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=folder):
+                for obj in page.get('Contents', []):
+                    if obj['Key'].lower().endswith(('.png', '.jpg', '.jpeg')):
+                        image_files.append(obj['Key'])
+            
             return image_files
         except Exception as e:
             console.print(f"[red]Error listing image files: {str(e)}[/]")

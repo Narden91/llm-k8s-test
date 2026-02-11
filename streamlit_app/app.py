@@ -96,6 +96,9 @@ def stream_response(engine, prompt: str, temp: float, max_tok: int, top_p: float
         t0 = time.perf_counter()
         
         try:
+            # Add user message to conversation before calling generate_stream
+            st.session_state.conversation.add_user_message(prompt)
+            
             for token in engine.generate_stream(
                 prompt=prompt,
                 conversation=st.session_state.conversation,

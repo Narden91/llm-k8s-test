@@ -209,6 +209,8 @@ class LLMEngine:
         Args:
             prompt: The user's input prompt.
             conversation: Optional conversation history for context.
+                         NOTE: The caller is responsible for adding the user message
+                         to the conversation before calling this method.
             **generation_kwargs: Override generation parameters.
 
         Returns:
@@ -223,7 +225,7 @@ class LLMEngine:
         # Build full prompt with conversation context
         model_id = self.config.model.model_id
         if conversation is not None:
-            conversation.add_user_message(prompt)
+            # Caller should have already added user message to conversation
             full_prompt = conversation.format(model_id)
         else:
             # Simple single-turn prompt
@@ -251,15 +253,24 @@ class LLMEngine:
         conversation: ConversationHistory | None = None,
         **generation_kwargs,
     ) -> Iterator[str]:
-        """Generate a streaming response for the given prompt.
+        """Generate a response for the given prompt.
+        
+        WARNING: This method does NOT provide true token-by-token streaming.
+        The vLLM LLM class uses a batch API that returns the complete response.
+        For real streaming, use vLLM's AsyncLLMEngine instead.
+        
+        This method yields the complete response as a single chunk for compatibility
+        with streaming interfaces, but provides no latency benefit over generate().
 
         Args:
             prompt: The user's input prompt.
             conversation: Optional conversation history for context.
+                         NOTE: The caller is responsible for adding the user message
+                         to the conversation before calling this method.
             **generation_kwargs: Override generation parameters.
 
         Yields:
-            Generated text tokens as they become available.
+            Generated text as a single chunk (not true streaming).
 
         Raises:
             RuntimeError: If model hasn't been loaded.
@@ -270,7 +281,7 @@ class LLMEngine:
         # Build full prompt with conversation context
         model_id = self.config.model.model_id
         if conversation is not None:
-            conversation.add_user_message(prompt)
+            # Caller should have already added user message to conversation
             full_prompt = conversation.format(model_id)
         else:
             # Simple single-turn prompt
@@ -280,18 +291,20 @@ class LLMEngine:
                 full_prompt = f"<s>[INST] {prompt} [/INST]"
 
         sampling_params = self._get_sampling_params(**generation_kwargs)
-
-        # Use streaming generation
-        full_response = ""
-        for output in self._llm.generate([full_prompt], sampling_params, use_tqdm=False):
-            token = output.outputs[0].text[len(full_response):]
-            full_response = output.outputs[0].text
-            if token:
-                yield token
+        
+        # Generate complete response (batch API, not streaming)
+        outputs: list[RequestOutput] = self._llm.generate(
+            [full_prompt], sampling_params, use_tqdm=False
+        )
+        
+        full_response = outputs[0].outputs[0].text.strip()
+        
+        # Yield complete response as single chunk
+        yield full_response
 
         # Update conversation history with complete response
         if conversation is not None:
-            conversation.add_assistant_message(full_response.strip())
+            conversation.add_assistant_message(full_response)
 
     def is_loaded(self) -> bool:
         """Check if the model is loaded.
