@@ -36,18 +36,24 @@ A **production-ready LLM inference platform** powered by **vLLM** and **Mistral 
 ## 📁 Project Structure
 ```bash
 llm-k8s-test/
+├── config/                   # 📜 Configuration handlers
+│   └── s3_config_handler.py
+├── configs/                  # ⚙️ YAML configuration files
+│   └── llm_config.yaml
 ├── llm_operations/           # 🧠 LLM inference engine
 │   ├── llm_config.py         # Pydantic configuration models
 │   └── llm_inference.py      # vLLM engine wrapper
+├── s3_operations/            # ☁️ S3 storage utilities
+│   ├── s3_client.py          # Low-level S3 client wrapper
+│   └── s3_operations.py      # High-level S3 operations
 ├── streamlit_app/            # 💬 Chat interface
 │   └── app.py                # Streamlit application
-├── s3_operations/            # ☁️ S3 storage utilities
-├── configs/                  # ⚙️ YAML configuration files
 ├── doc/                      # 📚 Documentation
 ├── .github/workflows/        # 🔄 CI/CD pipelines
 ├── Dockerfile.llm            # 🐳 LLM container image
 ├── llm-manifest.yml          # ☸️ Kubernetes deployment
 ├── requirements-llm.txt      # 📦 Python dependencies
+├── verify_s3.py              # 🔍 S3 Setup Verification Script
 └── pyproject.toml            # 🔧 Project configuration
 ```
 
@@ -80,6 +86,9 @@ uv sync
 
 # Run Streamlit app (requires GPU)
 uv run streamlit run streamlit_app/app.py
+
+# Verify S3 connection (optional)
+uv run verify_s3.py
 ```
 
 ### Kubernetes Deployment
